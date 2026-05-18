@@ -31,4 +31,18 @@ public class HorariosController : ControllerBase
         var id = await _atraccionesService.CrearHorarioAsync(request, cancellationToken);
         return Ok(ApiResponse<int>.Ok(id, "Horario creado correctamente."));
     }
+
+    [HttpPut("{guid:guid}")]
+    public async Task<IActionResult> Actualizar(Guid guid, [FromBody] ActualizarHorarioRequest request, CancellationToken cancellationToken)
+    {
+        var ok = await _atraccionesService.ActualizarHorarioAsync(guid, request, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Horario actualizado correctamente."));
+    }
+
+    [HttpDelete("{guid:guid}")]
+    public async Task<IActionResult> Eliminar(Guid guid, CancellationToken cancellationToken)
+    {
+        var ok = await _atraccionesService.EliminarHorarioAsync(guid, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Horario eliminado correctamente."));
+    }
 }

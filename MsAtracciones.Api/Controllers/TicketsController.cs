@@ -40,4 +40,20 @@ public class TicketsController : ControllerBase
         var id = await _atraccionesService.CrearTicketAsync(request, cancellationToken);
         return Ok(ApiResponse<int>.Ok(id, "Ticket creado correctamente."));
     }
+
+    [HttpPut("{guid:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Actualizar(Guid guid, [FromBody] ActualizarTicketRequest request, CancellationToken cancellationToken)
+    {
+        var ok = await _atraccionesService.ActualizarTicketAsync(guid, request, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Ticket actualizado correctamente."));
+    }
+
+    [HttpDelete("{guid:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Eliminar(Guid guid, CancellationToken cancellationToken)
+    {
+        var ok = await _atraccionesService.EliminarTicketAsync(guid, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Ticket eliminado correctamente."));
+    }
 }

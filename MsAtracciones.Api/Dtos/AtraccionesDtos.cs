@@ -101,6 +101,10 @@ public class CrearTicketRequest
     public int CuposDisponibles { get; set; }
 }
 
+public class ActualizarTicketRequest : CrearTicketRequest
+{
+}
+
 public class CrearHorarioRequest
 {
     public Guid TicketGuid { get; set; }
@@ -108,6 +112,10 @@ public class CrearHorarioRequest
     public TimeOnly HoraInicio { get; set; }
     public TimeOnly? HoraFin { get; set; }
     public int CuposDisponibles { get; set; }
+}
+
+public class ActualizarHorarioRequest : CrearHorarioRequest
+{
 }
 
 public class ReseniaResponse
@@ -128,6 +136,10 @@ public class CrearReseniaRequest
     public short Rating { get; set; }
 }
 
+public class ActualizarReseniaRequest : CrearReseniaRequest
+{
+}
+
 public class CrearDestinoRequest
 {
     public string Nombre { get; set; } = null!;
@@ -135,8 +147,44 @@ public class CrearDestinoRequest
     public string? ImagenUrl { get; set; }
 }
 
+public class ActualizarDestinoRequest : CrearDestinoRequest
+{
+}
+
 public class CrearCategoriaRequest
 {
     public string Nombre { get; set; } = null!;
     public int? ParentId { get; set; }
+}
+
+public class ActualizarCategoriaRequest : CrearCategoriaRequest
+{
+}
+
+public class CrearIdiomaRequest
+{
+    public string Nombre { get; set; } = null!;
+}
+
+public class ActualizarIdiomaRequest : CrearIdiomaRequest
+{
+}
+
+public class CrearIncluyeRequest
+{
+    public string Descripcion { get; set; } = null!;
+}
+
+public class ActualizarIncluyeRequest : CrearIncluyeRequest
+{
+}
+
+public class CrearImagenRequest
+{
+    public string Url { get; set; } = null!;
+    public string? Descripcion { get; set; }
+}
+
+public class ActualizarImagenRequest : CrearImagenRequest
+{
 }

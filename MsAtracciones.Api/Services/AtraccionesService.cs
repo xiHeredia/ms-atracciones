@@ -375,16 +375,67 @@ public class AtraccionesService
         return ticket.TckId;
     }
 
+    public async Task<bool> ActualizarTicketAsync(Guid guid, ActualizarTicketRequest request, CancellationToken cancellationToken)
+    {
+        ValidateTicket(request);
+
+        var ticket = await _context.Tickets.FirstOrDefaultAsync(
+            x => x.TckGuid == guid && x.TckEstado == "A",
+            cancellationToken);
+
+        if (ticket is null)
+            throw new NotFoundException("No se encontro el ticket.");
+
+        var atraccion = await _context.Atracciones.FirstOrDefaultAsync(
+            x => x.AtGuid == request.AtraccionGuid && x.AtEstado == "A",
+            cancellationToken);
+
+        if (atraccion is null)
+            throw new ValidationException("La atraccion indicada no existe.");
+
+        ticket.AtId = atraccion.AtId;
+        ticket.TckTitulo = request.Titulo.Trim();
+        ticket.TckPrecio = request.Precio;
+        ticket.TckTipoParticipante = NormalizeTipoParticipante(request.TipoParticipante);
+        ticket.TckCapacidadMaxima = request.CapacidadMaxima;
+        ticket.TckCuposDisponibles = request.CuposDisponibles;
+        ticket.TckFechaMod = DateTimeOffset.UtcNow;
+        ticket.TckUsuarioMod = "api";
+        ticket.TckIpMod = "127.0.0.1";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> EliminarTicketAsync(Guid guid, CancellationToken cancellationToken)
+    {
+        var ticket = await _context.Tickets
+            .Include(x => x.Horarios.Where(h => h.HorEstado == "A"))
+            .FirstOrDefaultAsync(x => x.TckGuid == guid && x.TckEstado == "A", cancellationToken);
+
+        if (ticket is null)
+            throw new NotFoundException("No se encontro el ticket.");
+
+        ticket.TckEstado = "I";
+        ticket.TckFechaEliminacion = DateTimeOffset.UtcNow;
+        ticket.TckUsuarioEliminacion = "api";
+        ticket.TckIpEliminacion = "127.0.0.1";
+
+        foreach (var horario in ticket.Horarios)
+        {
+            horario.HorEstado = "I";
+            horario.HorFechaEliminacion = DateTimeOffset.UtcNow;
+            horario.HorUsuarioEliminacion = "api";
+            horario.HorIpEliminacion = "127.0.0.1";
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<int> CrearHorarioAsync(CrearHorarioRequest request, CancellationToken cancellationToken)
     {
-        if (request.TicketGuid == Guid.Empty)
-            throw new ValidationException("El ticketGuid es obligatorio.");
-
-        if (request.CuposDisponibles < 0)
-            throw new ValidationException("Los cupos disponibles no pueden ser negativos.");
-
-        if (request.HoraFin is not null && request.HoraFin <= request.HoraInicio)
-            throw new ValidationException("La hora fin debe ser mayor a la hora inicio.");
+        ValidateHorario(request);
 
         var ticket = await _context.Tickets.FirstOrDefaultAsync(
             x => x.TckGuid == request.TicketGuid && x.TckEstado == "A",
@@ -411,6 +462,55 @@ public class AtraccionesService
         await _context.SaveChangesAsync(cancellationToken);
 
         return horario.HorId;
+    }
+
+    public async Task<bool> ActualizarHorarioAsync(Guid guid, ActualizarHorarioRequest request, CancellationToken cancellationToken)
+    {
+        ValidateHorario(request);
+
+        var horario = await _context.Horarios.FirstOrDefaultAsync(
+            x => x.HorGuid == guid && x.HorEstado == "A",
+            cancellationToken);
+
+        if (horario is null)
+            throw new NotFoundException("No se encontro el horario.");
+
+        var ticket = await _context.Tickets.FirstOrDefaultAsync(
+            x => x.TckGuid == request.TicketGuid && x.TckEstado == "A",
+            cancellationToken);
+
+        if (ticket is null)
+            throw new ValidationException("El ticket indicado no existe.");
+
+        horario.TckId = ticket.TckId;
+        horario.HorFecha = request.Fecha;
+        horario.HorHoraInicio = request.HoraInicio;
+        horario.HorHoraFin = request.HoraFin;
+        horario.HorCuposDisponibles = request.CuposDisponibles;
+        horario.HorFechaMod = DateTimeOffset.UtcNow;
+        horario.HorUsuarioMod = "api";
+        horario.HorIpMod = "127.0.0.1";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> EliminarHorarioAsync(Guid guid, CancellationToken cancellationToken)
+    {
+        var horario = await _context.Horarios.FirstOrDefaultAsync(
+            x => x.HorGuid == guid && x.HorEstado == "A",
+            cancellationToken);
+
+        if (horario is null)
+            throw new NotFoundException("No se encontro el horario.");
+
+        horario.HorEstado = "I";
+        horario.HorFechaEliminacion = DateTimeOffset.UtcNow;
+        horario.HorUsuarioEliminacion = "api";
+        horario.HorIpEliminacion = "127.0.0.1";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<IReadOnlyList<ReseniaResponse>> ListarReseniasAsync(Guid? atraccionGuid, CancellationToken cancellationToken)
@@ -494,6 +594,84 @@ public class AtraccionesService
         await _context.SaveChangesAsync(cancellationToken);
 
         return resenia.RsnId;
+    }
+
+    public async Task<bool> ActualizarReseniaAsync(Guid guid, ActualizarReseniaRequest request, CancellationToken cancellationToken)
+    {
+        if (request.AtraccionGuid == Guid.Empty)
+            throw new ValidationException("El atraccionGuid es obligatorio.");
+
+        if (request.ReservaGuid == Guid.Empty)
+            throw new ValidationException("El reservaGuid es obligatorio.");
+
+        if (request.Rating is < 1 or > 5)
+            throw new ValidationException("El rating debe estar entre 1 y 5.");
+
+        var resenia = await _context.Resenias.FirstOrDefaultAsync(
+            x => x.RsnGuid == guid && x.RsnEstado == "A",
+            cancellationToken);
+
+        if (resenia is null)
+            throw new NotFoundException("No se encontro la resena.");
+
+        var atraccion = await _context.Atracciones.FirstOrDefaultAsync(
+            x => x.AtGuid == request.AtraccionGuid && x.AtEstado == "A",
+            cancellationToken);
+
+        if (atraccion is null)
+            throw new NotFoundException("No se encontro la atraccion.");
+
+        var exists = await _context.Resenias.AnyAsync(
+            x => x.RsnGuid != guid && x.RevGuid == request.ReservaGuid && x.RsnEstado == "A",
+            cancellationToken);
+
+        if (exists)
+            throw new ValidationException("Ya existe una resena para esa reserva.");
+
+        if (resenia.AtId != atraccion.AtId)
+        {
+            var previousAtraccion = await _context.Atracciones.FirstOrDefaultAsync(
+                x => x.AtId == resenia.AtId,
+                cancellationToken);
+
+            if (previousAtraccion is not null && previousAtraccion.AtTotalResenias > 0)
+                previousAtraccion.AtTotalResenias--;
+
+            atraccion.AtTotalResenias++;
+            resenia.AtId = atraccion.AtId;
+        }
+
+        resenia.RevGuid = request.ReservaGuid;
+        resenia.RsnComentario = request.Comentario;
+        resenia.RsnRating = request.Rating;
+        resenia.RsnFechaMod = DateTimeOffset.UtcNow;
+        resenia.RsnUsuarioMod = "api";
+        resenia.RsnIpMod = "127.0.0.1";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> EliminarReseniaAsync(Guid guid, CancellationToken cancellationToken)
+    {
+        var resenia = await _context.Resenias.FirstOrDefaultAsync(
+            x => x.RsnGuid == guid && x.RsnEstado == "A",
+            cancellationToken);
+
+        if (resenia is null)
+            throw new NotFoundException("No se encontro la resena.");
+
+        resenia.RsnEstado = "I";
+        resenia.RsnFechaEliminacion = DateTimeOffset.UtcNow;
+        resenia.RsnUsuarioEliminacion = "api";
+        resenia.RsnIpEliminacion = "127.0.0.1";
+
+        var atraccion = await _context.Atracciones.FirstOrDefaultAsync(x => x.AtId == resenia.AtId, cancellationToken);
+        if (atraccion is not null && atraccion.AtTotalResenias > 0)
+            atraccion.AtTotalResenias--;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     private async Task<IReadOnlyList<HorarioResponse>> ListarHorariosAsync(
@@ -707,6 +885,18 @@ public class AtraccionesService
 
         if (errors.Count > 0)
             throw new ValidationException("Error de validacion.", errors);
+    }
+
+    private static void ValidateHorario(CrearHorarioRequest request)
+    {
+        if (request.TicketGuid == Guid.Empty)
+            throw new ValidationException("El ticketGuid es obligatorio.");
+
+        if (request.CuposDisponibles < 0)
+            throw new ValidationException("Los cupos disponibles no pueden ser negativos.");
+
+        if (request.HoraFin is not null && request.HoraFin <= request.HoraInicio)
+            throw new ValidationException("La hora fin debe ser mayor a la hora inicio.");
     }
 
     private static string NormalizeTipoParticipante(string value)

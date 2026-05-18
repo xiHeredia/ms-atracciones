@@ -49,4 +49,20 @@ public class ReseniasController : ControllerBase
         var id = await _atraccionesService.CrearReseniaAsync(request, cancellationToken);
         return Ok(ApiResponse<int>.Ok(id, "Resenia creada correctamente."));
     }
+
+    [HttpPut("{guid:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Actualizar(Guid guid, [FromBody] ActualizarReseniaRequest request, CancellationToken cancellationToken)
+    {
+        var ok = await _atraccionesService.ActualizarReseniaAsync(guid, request, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Resenia actualizada correctamente."));
+    }
+
+    [HttpDelete("{guid:guid}")]
+    [Authorize]
+    public async Task<IActionResult> Eliminar(Guid guid, CancellationToken cancellationToken)
+    {
+        var ok = await _atraccionesService.EliminarReseniaAsync(guid, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Resenia eliminada correctamente."));
+    }
 }
