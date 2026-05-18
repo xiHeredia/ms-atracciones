@@ -23,9 +23,11 @@ public class AtraccionesController : ControllerBase
         [FromQuery] string? nombre,
         [FromQuery] Guid? destinoGuid,
         [FromQuery] Guid? categoriaGuid,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
         CancellationToken cancellationToken)
     {
-        var result = await _atraccionesService.ListarAtraccionesAsync(nombre, destinoGuid, categoriaGuid, cancellationToken);
+        var result = await _atraccionesService.ListarAtraccionesAsync(nombre, destinoGuid, categoriaGuid, page, pageSize, cancellationToken);
         return Ok(ApiResponse<IReadOnlyList<AtraccionResponse>>.Ok(result, "Consulta exitosa."));
     }
 

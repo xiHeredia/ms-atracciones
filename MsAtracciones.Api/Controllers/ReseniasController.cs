@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Atracciones.Shared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +39,7 @@ public class ReseniasController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Crear([FromBody] CrearReseniaRequest request, CancellationToken cancellationToken)
     {
+        request.UsuarioCreacion = GetUsuarioActual();
         var id = await _atraccionesService.CrearReseniaAsync(request, cancellationToken);
         return Ok(ApiResponse<int>.Ok(id, "Resenia creada correctamente."));
     }
@@ -46,6 +49,7 @@ public class ReseniasController : ControllerBase
     public async Task<IActionResult> CrearPorAtraccion(Guid atraccionGuid, [FromBody] CrearReseniaRequest request, CancellationToken cancellationToken)
     {
         request.AtraccionGuid = atraccionGuid;
+        request.UsuarioCreacion = GetUsuarioActual();
         var id = await _atraccionesService.CrearReseniaAsync(request, cancellationToken);
         return Ok(ApiResponse<int>.Ok(id, "Resenia creada correctamente."));
     }
@@ -64,5 +68,17 @@ public class ReseniasController : ControllerBase
     {
         var ok = await _atraccionesService.EliminarReseniaAsync(guid, cancellationToken);
         return Ok(ApiResponse<bool>.Ok(ok, "Resenia eliminada correctamente."));
+    }
+
+    private string GetUsuarioActual()
+    {
+        if (User.Identity?.IsAuthenticated != true)
+            return "booking-public";
+
+        return User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName)
+            ?? User.Identity.Name
+            ?? "booking-authenticated";
     }
 }

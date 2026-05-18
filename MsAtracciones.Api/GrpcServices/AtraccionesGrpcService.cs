@@ -25,6 +25,8 @@ public class AtraccionesGrpcService : AtraccionesGrpc.AtraccionesGrpcBase
             string.IsNullOrWhiteSpace(request.Nombre) ? null : request.Nombre,
             destinoGuid,
             categoriaGuid,
+            request.Page > 0 ? request.Page : null,
+            request.PageSize > 0 ? request.PageSize : null,
             context.CancellationToken);
 
         return Ok(ApiResponse<IReadOnlyList<AtraccionResponse>>.Ok(result, "Consulta exitosa."));

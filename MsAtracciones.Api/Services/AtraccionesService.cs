@@ -29,6 +29,8 @@ public class AtraccionesService
         string? nombre,
         Guid? destinoGuid,
         Guid? categoriaGuid,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
         var query = _context.Atracciones
@@ -50,9 +52,19 @@ public class AtraccionesService
             query = query.Where(x => ids.Contains(x.AtId));
         }
 
-        var atracciones = await query
-            .OrderBy(x => x.AtNombre)
-            .ToListAsync(cancellationToken);
+        IQueryable<AtraccionEntity> ordered = query.OrderBy(x => x.AtNombre);
+
+        if (page is not null || pageSize is not null)
+        {
+            var currentPage = Math.Max(page ?? 1, 1);
+            var currentPageSize = Math.Clamp(pageSize ?? 20, 1, 100);
+
+            ordered = ordered
+                .Skip((currentPage - 1) * currentPageSize)
+                .Take(currentPageSize);
+        }
+
+        var atracciones = await ordered.ToListAsync(cancellationToken);
 
         return await MapAtraccionesAsync(atracciones, cancellationToken);
     }
@@ -583,7 +595,9 @@ public class AtraccionesService
             RsnComentario = request.Comentario,
             RsnRating = request.Rating,
             RsnFechaCreacion = DateTimeOffset.UtcNow,
-            RsnUsuarioCreacion = "api",
+            RsnUsuarioCreacion = string.IsNullOrWhiteSpace(request.UsuarioCreacion)
+                ? "booking-public"
+                : request.UsuarioCreacion.Trim(),
             RsnIpCreacion = "127.0.0.1",
             RsnEstado = "A"
         };
