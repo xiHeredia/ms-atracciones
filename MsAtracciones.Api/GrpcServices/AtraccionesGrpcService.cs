@@ -36,9 +36,33 @@ public class AtraccionesGrpcService : AtraccionesGrpc.AtraccionesGrpcBase
         return Ok(ApiResponse<AtraccionDetalleResponse>.Ok(result, "Consulta exitosa."));
     }
 
+    public override async Task<JsonReply> ObtenerFiltros(EmptyRequest request, ServerCallContext context)
+    {
+        var result = await _atraccionesService.ObtenerFiltrosAsync(context.CancellationToken);
+        return Ok(ApiResponse<FiltrosAtraccionesResponse>.Ok(result, "Consulta exitosa."));
+    }
+
     public override async Task<JsonReply> ObtenerTickets(GuidRequest request, ServerCallContext context)
     {
         var result = await _atraccionesService.ListarTicketsPorAtraccionAsync(Guid.Parse(request.Guid), context.CancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<TicketResponse>>.Ok(result, "Consulta exitosa."));
+    }
+
+    public override async Task<JsonReply> ObtenerHorariosAtraccion(HorariosAtraccionRequest request, ServerCallContext context)
+    {
+        var result = await _atraccionesService.ListarHorariosPorAtraccionAsync(
+            Guid.Parse(request.AtraccionGuid),
+            request.Disponibles,
+            context.CancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<HorarioResponse>>.Ok(result, "Consulta exitosa."));
+    }
+
+    public override async Task<JsonReply> ObtenerTicketsPorHorario(HorarioTicketsRequest request, ServerCallContext context)
+    {
+        var result = await _atraccionesService.ListarTicketsPorHorarioAsync(
+            Guid.Parse(request.AtraccionGuid),
+            Guid.Parse(request.HorarioGuid),
+            context.CancellationToken);
         return Ok(ApiResponse<IReadOnlyList<TicketResponse>>.Ok(result, "Consulta exitosa."));
     }
 
@@ -46,6 +70,19 @@ public class AtraccionesGrpcService : AtraccionesGrpc.AtraccionesGrpcBase
     {
         var result = await _atraccionesService.ListarHorariosPorTicketAsync(Guid.Parse(request.Guid), context.CancellationToken);
         return Ok(ApiResponse<IReadOnlyList<HorarioResponse>>.Ok(result, "Consulta exitosa."));
+    }
+
+    public override async Task<JsonReply> ListarResenias(GuidRequest request, ServerCallContext context)
+    {
+        var result = await _atraccionesService.ListarReseniasAsync(Guid.Parse(request.Guid), context.CancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<ReseniaResponse>>.Ok(result, "Consulta exitosa."));
+    }
+
+    public override async Task<JsonReply> CrearResenia(JsonRequest request, ServerCallContext context)
+    {
+        var body = JsonSerializer.Deserialize<CrearReseniaRequest>(request.Json, JsonOptions) ?? new CrearReseniaRequest();
+        var result = await _atraccionesService.CrearReseniaAsync(body, context.CancellationToken);
+        return Ok(ApiResponse<int>.Ok(result, "Resenia creada correctamente."));
     }
 
     private static JsonReply Ok<T>(T value)

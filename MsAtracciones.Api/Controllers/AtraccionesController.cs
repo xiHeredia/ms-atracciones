@@ -61,6 +61,22 @@ public class AtraccionesController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<HorarioResponse>>.Ok(result, "Consulta exitosa."));
     }
 
+    [HttpGet("{guid:guid}/horarios")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Horarios(Guid guid, [FromQuery] bool disponibles, CancellationToken cancellationToken)
+    {
+        var result = await _atraccionesService.ListarHorariosPorAtraccionAsync(guid, disponibles, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<HorarioResponse>>.Ok(result, "Consulta exitosa."));
+    }
+
+    [HttpGet("{guid:guid}/horarios/{horarioId:guid}/tickets")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TicketsPorHorario(Guid guid, Guid horarioId, CancellationToken cancellationToken)
+    {
+        var result = await _atraccionesService.ListarTicketsPorHorarioAsync(guid, horarioId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<TicketResponse>>.Ok(result, "Consulta exitosa."));
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Crear([FromBody] CrearAtraccionRequest request, CancellationToken cancellationToken)

@@ -137,6 +137,11 @@ public class AtraccionesService
 
     public async Task<IReadOnlyList<HorarioResponse>> ListarHorariosDisponiblesPorAtraccionAsync(Guid atraccionGuid, CancellationToken cancellationToken)
     {
+        return await ListarHorariosPorAtraccionAsync(atraccionGuid, onlyAvailable: true, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<HorarioResponse>> ListarHorariosPorAtraccionAsync(Guid atraccionGuid, bool onlyAvailable, CancellationToken cancellationToken)
+    {
         var atraccion = await _context.Atracciones
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.AtGuid == atraccionGuid && x.AtEstado == "A", cancellationToken);
@@ -150,7 +155,45 @@ public class AtraccionesService
             .Select(x => x.TckId)
             .ToListAsync(cancellationToken);
 
-        return await ListarHorariosAsync(ticketIds, onlyAvailable: true, cancellationToken);
+        return await ListarHorariosAsync(ticketIds, onlyAvailable, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<TicketResponse>> ListarTicketsPorHorarioAsync(Guid atraccionGuid, Guid horarioGuid, CancellationToken cancellationToken)
+    {
+        var atraccion = await _context.Atracciones
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.AtGuid == atraccionGuid && x.AtEstado == "A", cancellationToken);
+
+        if (atraccion is null)
+            throw new NotFoundException("No se encontro la atraccion.");
+
+        var row = await _context.Horarios
+            .AsNoTracking()
+            .Where(x => x.HorGuid == horarioGuid && x.HorEstado == "A")
+            .Join(
+                _context.Tickets.AsNoTracking().Where(x => x.TckEstado == "A"),
+                horario => horario.TckId,
+                ticket => ticket.TckId,
+                (horario, ticket) => new { Horario = horario, Ticket = ticket })
+            .FirstOrDefaultAsync(x => x.Ticket.AtId == atraccion.AtId, cancellationToken);
+
+        if (row is null)
+            throw new NotFoundException("No se encontro el horario para la atraccion indicada.");
+
+        return new[]
+        {
+            new TicketResponse
+            {
+                Guid = row.Ticket.TckGuid,
+                AtraccionGuid = atraccion.AtGuid,
+                AtraccionNombre = atraccion.AtNombre,
+                Titulo = row.Ticket.TckTitulo,
+                Precio = row.Ticket.TckPrecio,
+                TipoParticipante = row.Ticket.TckTipoParticipante,
+                CapacidadMaxima = row.Ticket.TckCapacidadMaxima,
+                CuposDisponibles = row.Horario.HorCuposDisponibles
+            }
+        };
     }
 
     public async Task<IReadOnlyList<HorarioResponse>> ListarHorariosPorTicketAsync(Guid ticketGuid, CancellationToken cancellationToken)
