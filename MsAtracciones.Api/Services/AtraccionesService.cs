@@ -57,7 +57,7 @@ public class AtraccionesService
         if (page is not null || pageSize is not null)
         {
             var currentPage = Math.Max(page ?? 1, 1);
-            var currentPageSize = Math.Clamp(pageSize ?? 20, 1, 100);
+            var currentPageSize = Math.Clamp(pageSize ?? 10, 1, 50);
 
             ordered = ordered
                 .Skip((currentPage - 1) * currentPageSize)
