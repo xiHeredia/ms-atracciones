@@ -91,6 +91,9 @@ public class AtraccionesService
                 ImagenUrl = x.ImagenUrl,
                 DuracionMinutos = x.DuracionMinutos,
                 Direccion = x.Direccion,
+                PuntoEncuentro = x.PuntoEncuentro,
+                IncluyeTransporte = x.IncluyeTransporte,
+                IncluyeAcompaniante = x.IncluyeAcompaniante,
                 Disponible = x.Disponible,
                 TotalResenias = x.TotalResenias
             })
@@ -192,20 +195,32 @@ public class AtraccionesService
         if (row is null)
             throw new NotFoundException("No se encontro el horario para la atraccion indicada.");
 
-        return new[]
-        {
+        var horariosMismoBloque = await _context.Horarios
+            .AsNoTracking()
+            .Where(x => x.HorEstado == "A" &&
+                        x.HorFecha == row.Horario.HorFecha &&
+                        x.HorHoraInicio == row.Horario.HorHoraInicio &&
+                        x.HorHoraFin == row.Horario.HorHoraFin)
+            .Join(
+                _context.Tickets.AsNoTracking().Where(x => x.TckEstado == "A" && x.AtId == atraccion.AtId),
+                horario => horario.TckId,
+                ticket => ticket.TckId,
+                (horario, ticket) => new { Horario = horario, Ticket = ticket })
+            .OrderBy(x => x.Ticket.TckPrecio)
+            .ToListAsync(cancellationToken);
+
+        return horariosMismoBloque.Select(x =>
             new TicketResponse
             {
-                Guid = row.Ticket.TckGuid,
+                Guid = x.Ticket.TckGuid,
                 AtraccionGuid = atraccion.AtGuid,
                 AtraccionNombre = atraccion.AtNombre,
-                Titulo = row.Ticket.TckTitulo,
-                Precio = row.Ticket.TckPrecio,
-                TipoParticipante = row.Ticket.TckTipoParticipante,
-                CapacidadMaxima = row.Ticket.TckCapacidadMaxima,
-                CuposDisponibles = row.Horario.HorCuposDisponibles
-            }
-        };
+                Titulo = x.Ticket.TckTitulo,
+                Precio = x.Ticket.TckPrecio,
+                TipoParticipante = x.Ticket.TckTipoParticipante,
+                CapacidadMaxima = x.Ticket.TckCapacidadMaxima,
+                CuposDisponibles = x.Horario.HorCuposDisponibles
+            }).ToList();
     }
 
     public async Task<IReadOnlyList<HorarioResponse>> ListarHorariosPorTicketAsync(Guid ticketGuid, CancellationToken cancellationToken)
@@ -835,6 +850,9 @@ public class AtraccionesService
             ImagenUrl = imagenUrl,
             DuracionMinutos = entity.AtDuracionMinutos,
             Direccion = entity.AtDireccion,
+            PuntoEncuentro = entity.AtPuntoEncuentro,
+            IncluyeTransporte = entity.AtIncluyeTransporte,
+            IncluyeAcompaniante = entity.AtIncluyeAcompaniante,
             Disponible = entity.AtDisponible,
             TotalResenias = entity.AtTotalResenias
         };

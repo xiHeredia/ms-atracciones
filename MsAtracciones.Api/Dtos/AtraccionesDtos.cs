@@ -28,6 +28,9 @@ public class AtraccionResponse
     public string? ImagenUrl { get; set; }
     public int? DuracionMinutos { get; set; }
     public string? Direccion { get; set; }
+    public string? PuntoEncuentro { get; set; }
+    public bool IncluyeTransporte { get; set; }
+    public bool IncluyeAcompaniante { get; set; }
     public bool Disponible { get; set; }
     public int TotalResenias { get; set; }
 }
