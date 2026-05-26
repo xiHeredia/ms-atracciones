@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MsAtracciones.Api.Dtos;
 
 public class CatalogoItemResponse
@@ -119,6 +121,37 @@ public class CrearHorarioRequest
 
 public class ActualizarHorarioRequest : CrearHorarioRequest
 {
+}
+
+public class MovimientoCuposRequest
+{
+    public IReadOnlyCollection<MovimientoCuposDetalleRequest> Detalles { get; set; } = Array.Empty<MovimientoCuposDetalleRequest>();
+
+    [JsonPropertyName("lineas")]
+    public IReadOnlyCollection<MovimientoCuposDetalleRequest> Lineas
+    {
+        get => Detalles;
+        set => Detalles = value ?? Array.Empty<MovimientoCuposDetalleRequest>();
+    }
+
+    public IReadOnlyCollection<MovimientoCuposDetalleRequest> Tickets
+    {
+        get => Detalles;
+        set => Detalles = value ?? Array.Empty<MovimientoCuposDetalleRequest>();
+    }
+}
+
+public class MovimientoCuposDetalleRequest
+{
+    public Guid TicketGuid { get; set; }
+    public int Cantidad { get; set; }
+
+    [JsonPropertyName("tck_guid")]
+    public Guid TicketGuidSnake
+    {
+        get => TicketGuid;
+        set => TicketGuid = value;
+    }
 }
 
 public class ReseniaResponse

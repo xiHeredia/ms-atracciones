@@ -80,6 +80,22 @@ public class AtraccionesController : ControllerBase
         return Ok(ApiResponse<IReadOnlyList<TicketResponse>>.Ok(result, "Consulta exitosa."));
     }
 
+    [HttpPost("{guid:guid}/horarios/{horarioId:guid}/cupos/descontar")]
+    [AllowAnonymous]
+    public async Task<IActionResult> DescontarCupos(Guid guid, Guid horarioId, [FromBody] MovimientoCuposRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _atraccionesService.DescontarCuposAsync(guid, horarioId, request, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(result, "Cupos descontados correctamente."));
+    }
+
+    [HttpPost("{guid:guid}/horarios/{horarioId:guid}/cupos/liberar")]
+    [AllowAnonymous]
+    public async Task<IActionResult> LiberarCupos(Guid guid, Guid horarioId, [FromBody] MovimientoCuposRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _atraccionesService.LiberarCuposAsync(guid, horarioId, request, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(result, "Cupos liberados correctamente."));
+    }
+
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Crear([FromBody] CrearAtraccionRequest request, CancellationToken cancellationToken)

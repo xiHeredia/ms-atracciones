@@ -223,6 +223,118 @@ public class AtraccionesService
             }).ToList();
     }
 
+    public async Task<bool> DescontarCuposAsync(
+        Guid atraccionGuid,
+        Guid horarioGuid,
+        MovimientoCuposRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await AplicarMovimientoCuposAsync(atraccionGuid, horarioGuid, request, descontar: true, cancellationToken);
+    }
+
+    public async Task<bool> LiberarCuposAsync(
+        Guid atraccionGuid,
+        Guid horarioGuid,
+        MovimientoCuposRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await AplicarMovimientoCuposAsync(atraccionGuid, horarioGuid, request, descontar: false, cancellationToken);
+    }
+
+    private async Task<bool> AplicarMovimientoCuposAsync(
+        Guid atraccionGuid,
+        Guid horarioGuid,
+        MovimientoCuposRequest request,
+        bool descontar,
+        CancellationToken cancellationToken)
+    {
+        ValidateMovimientoCupos(request);
+
+        var atraccion = await _context.Atracciones
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.AtGuid == atraccionGuid && x.AtEstado == "A", cancellationToken);
+
+        if (atraccion is null)
+            throw new NotFoundException("No se encontro la atraccion.");
+
+        var horarioBase = await _context.Horarios
+            .AsNoTracking()
+            .Where(x => x.HorGuid == horarioGuid && x.HorEstado == "A")
+            .Join(
+                _context.Tickets.AsNoTracking().Where(x => x.AtId == atraccion.AtId && x.TckEstado == "A"),
+                horario => horario.TckId,
+                ticket => ticket.TckId,
+                (horario, ticket) => horario)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (horarioBase is null)
+            throw new NotFoundException("No se encontro el horario para la atraccion indicada.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+
+        var detalles = request.Detalles ?? Array.Empty<MovimientoCuposDetalleRequest>();
+        foreach (var detalle in detalles
+            .GroupBy(x => x.TicketGuid)
+            .Select(x => new MovimientoCuposDetalleRequest
+            {
+                TicketGuid = x.Key,
+                Cantidad = x.Sum(y => y.Cantidad)
+            }))
+        {
+            var ticket = await _context.Tickets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    x => x.TckGuid == detalle.TicketGuid &&
+                         x.AtId == atraccion.AtId &&
+                         x.TckEstado == "A",
+                    cancellationToken);
+
+            if (ticket is null)
+                throw new ValidationException($"El ticket {detalle.TicketGuid} no pertenece a la atraccion indicada.");
+
+            var horario = await _context.Horarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    x => x.TckId == ticket.TckId &&
+                         x.HorEstado == "A" &&
+                         x.HorFecha == horarioBase.HorFecha &&
+                         x.HorHoraInicio == horarioBase.HorHoraInicio &&
+                         x.HorHoraFin == horarioBase.HorHoraFin,
+                    cancellationToken);
+
+            if (horario is null)
+                throw new ValidationException($"No existe horario activo para el ticket {detalle.TicketGuid} en el bloque seleccionado.");
+
+            if (descontar)
+            {
+                var affected = await _context.Horarios
+                    .Where(x => x.HorId == horario.HorId && x.HorCuposDisponibles >= detalle.Cantidad)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(x => x.HorCuposDisponibles, x => x.HorCuposDisponibles - detalle.Cantidad)
+                        .SetProperty(x => x.HorFechaMod, now)
+                        .SetProperty(x => x.HorUsuarioMod, "booking")
+                        .SetProperty(x => x.HorIpMod, "127.0.0.1"), cancellationToken);
+
+                if (affected == 0)
+                    throw new ValidationException($"No hay cupos suficientes para el ticket {detalle.TicketGuid}.");
+            }
+            else
+            {
+                await _context.Horarios
+                    .Where(x => x.HorId == horario.HorId)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(x => x.HorCuposDisponibles, x => x.HorCuposDisponibles + detalle.Cantidad)
+                        .SetProperty(x => x.HorFechaMod, now)
+                        .SetProperty(x => x.HorUsuarioMod, "booking")
+                        .SetProperty(x => x.HorIpMod, "127.0.0.1"), cancellationToken);
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<HorarioResponse>> ListarHorariosPorTicketAsync(Guid ticketGuid, CancellationToken cancellationToken)
     {
         var ticket = await _context.Tickets
@@ -929,6 +1041,27 @@ public class AtraccionesService
 
         if (request.HoraFin is not null && request.HoraFin <= request.HoraInicio)
             throw new ValidationException("La hora fin debe ser mayor a la hora inicio.");
+    }
+
+    private static void ValidateMovimientoCupos(MovimientoCuposRequest request)
+    {
+        var errors = new List<string>();
+        var detalles = request.Detalles ?? Array.Empty<MovimientoCuposDetalleRequest>();
+
+        if (detalles.Count == 0)
+            errors.Add("Debe enviar al menos una linea para mover cupos.");
+
+        foreach (var detalle in detalles)
+        {
+            if (detalle.TicketGuid == Guid.Empty)
+                errors.Add("Cada linea debe tener ticketGuid o tck_guid.");
+
+            if (detalle.Cantidad <= 0)
+                errors.Add("La cantidad debe ser mayor a cero.");
+        }
+
+        if (errors.Count > 0)
+            throw new ValidationException("Error de validacion.", errors);
     }
 
     private static string NormalizeTipoParticipante(string value)
